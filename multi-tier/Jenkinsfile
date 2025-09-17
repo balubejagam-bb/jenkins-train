@@ -1,0 +1,60 @@
+pipeline {
+    agent none   // no global agent, each stage defines its own
+    stages {
+
+        stage('Back-end') {
+            agent {
+                docker {
+                    image 'maven:3.8.1-adoptopenjdk-11'
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            steps {
+                echo 'Running Backend Build...'
+                sh 'mvn --version'
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('Front-end') {
+            agent {
+                docker {
+                    image 'node:16-alpine'
+                    args '-v $PWD:/app -w /app'
+                }
+            }
+            steps {
+                echo 'Running Frontend Build...'
+                sh 'node --version'
+                sh 'npm install'
+                sh 'npm run build'
+            }
+        }
+
+        stage('Database') {
+            agent {
+                docker {
+                    image 'mysql:8.0'
+                    args '-e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=mydb -p 3306:3306'
+                }
+            }
+            steps {
+                echo 'Starting Database...'
+                sh 'mysql --version'
+                // wait a few seconds for MySQL to start
+                sh 'sleep 20'
+                // run SQL command (example)
+                sh 'mysql -uroot -proot -e "SHOW DATABASES;"'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully 🎉'
+        }
+        failure {
+            echo 'Pipeline failed ❌'
+        }
+    }
+}
